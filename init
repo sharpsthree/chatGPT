@@ -1,0 +1,129 @@
+package com.lenovo.sdms.pool.balance.controller;
+
+import com.github.pagehelper.PageInfo;
+import com.lenovo.sdms.common.annotation.Log;
+import com.lenovo.sdms.common.core.controller.BaseController;
+import com.lenovo.sdms.common.core.domain.ResultDTO;
+import com.lenovo.sdms.common.core.page.TableDataInfo;
+import com.lenovo.sdms.common.enums.BusinessType;
+import com.lenovo.sdms.common.exception.SdmsException;
+import com.lenovo.sdms.common.utils.poi.NewExcelUtil;
+import com.lenovo.sdms.pool.balance.domain.dto.BalanceAdjustmentPoolTransferDTO;
+import com.lenovo.sdms.pool.balance.domain.dto.PostingDateScopeVo;
+import com.lenovo.sdms.pool.balance.service.IBalanceAdjustmentHeaderService;
+import com.lenovo.sdms.pool.domain.dto.*;
+import com.lenovo.sdms.pool.enums.BalanceStatusEnum;
+import com.lenovo.sdms.system.annotation.RequiresPermissions;
+import io.swagger.annotations.ApiParam;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import javax.servlet.http.HttpServletResponse;
+import java.util.List;
+
+/**
+ * balanceController
+ * 
+ * @author lovefamily
+ * @date 2022-09-13
+ */
+@RestController
+@RequestMapping("/balance")
+public class BalanceAdjustmentHeaderController extends BaseController
+{
+    public static final String SEARCH_RESULT = "Search Result";
+    @Autowired
+    private IBalanceAdjustmentHeaderService balanceAdjustmentHeaderService;
+
+    /**
+     * 查询balance列表
+     */
+    @RequiresPermissions("balance:balance:list")
+    @GetMapping("/list")
+    public TableDataInfo list(BalanceAdjustmentHeaderDTO balanceAdjustmentHeader)
+    {
+        startPage();
+        return getDataTable(balanceAdjustmentHeaderService.selectBalanceAdjustmentHeaderList(balanceAdjustmentHeader));
+    }
+
+
+    @RequiresPermissions("balance:balance:export")
+    @Log(title = "balance", businessType = BusinessType.EXPORT)
+    @PostMapping("/export")
+    public void export(HttpServletResponse response, BalanceAdjustmentHeaderDTO balanceAdjustmentHeader) {
+        PageInfo<BalanceAdjustmentHeaderDTO> list = balanceAdjustmentHeaderService.selectBalanceAdjustmentHeaderList(balanceAdjustmentHeader);
+        NewExcelUtil<BalanceAdjustmentHeaderDTO> util = new NewExcelUtil<>(BalanceAdjustmentHeaderDTO.class);
+        util.exportExcel(response, list.getList(), SEARCH_RESULT);
+    }
+
+     @PostMapping(value = "/massCreate")
+    public ResultDTO massCreate(@ApiParam(value = "上传的文件", required = true) MultipartFile file) {
+
+        return balanceAdjustmentHeaderService.massCreate(file,getLoginName());
+    }
+
+    @RequiresPermissions("balance:balance:list")
+    @GetMapping("/approvinglist")
+    public ResultDTO<PageInfo<BalanceAdjustmentHeaderDTO>> approvinglist(BalanceAdjustmentViewDTO balanceAdjustmentHeader)
+    {
+        startPage();
+        return ResultDTO.success(balanceAdjustmentHeaderService.approvingList(balanceAdjustmentHeader,getCurrentUserId(), getToken(), getLoginName()));
+    }
+
+    @RequiresPermissions("balance:balance:list")
+    @GetMapping("/approvingHistorylist")
+    public ResultDTO<PageInfo<BalanceAdjustmentHeaderApproveHisDTO>> approvingHistorylist(BalanceAdjustmentViewDTO balanceAdjustmentHeader)
+    {
+        startPage();
+        return ResultDTO.success(balanceAdjustmentHeaderService.approvingHistoryList(balanceAdjustmentHeader,getCurrentUserId(), getToken(), getLoginName()));
+    }
+
+    /**
+     * 导出balance detail列表
+     */
+    @RequiresPermissions("balance:balance:export")
+    @Log(title = "balance", businessType = BusinessType.EXPORT)
+    @PostMapping("/exportDetail")
+    public void exportDetail(HttpServletResponse response, BalanceAdjustmentHeaderDTO balanceAdjustmentHeader)
+    {
+        List<BalanceAdjustmentHeaderAndItemDTO> list = balanceAdjustmentHeaderService.selectBalanceAdjustmentHeaderAndItemList(balanceAdjustmentHeader);
+        NewExcelUtil<BalanceAdjustmentHeaderAndItemDTO> util = new NewExcelUtil<>(BalanceAdjustmentHeaderAndItemDTO.class);
+        util.exportExcel(response, list, SEARCH_RESULT);
+    }
+
+    @RequiresPermissions("balance:balance:export")
+    @Log(title = "balance", businessType = BusinessType.EXPORT)
+    @PostMapping("/exportApprovingHistory")
+    public void exportApprovingHistory(HttpServletResponse response, BalanceAdjustmentHeaderDTO balanceAdjustmentHeader)
+    {
+        List<BalanceAdjustmentHeaderAndApproveHisDTO> list = balanceAdjustmentHeaderService.approvingHistoryListInBa(balanceAdjustmentHeader);
+        NewExcelUtil<BalanceAdjustmentHeaderAndApproveHisDTO> util = new NewExcelUtil<>(BalanceAdjustmentHeaderAndApproveHisDTO.class);
+        util.exportExcel(response, list, SEARCH_RESULT);
+    }
+
+
+    @PostMapping(value = "/approval")
+    public ResultDTO<Object> approval(@RequestBody BalanceAdjustmentApproveItemDTO balanceAdjustmentApproveItemDTO) {
+        balanceAdjustmentHeaderService.approval(balanceAdjustmentApproveItemDTO, getLoginName() == null ? "admin" : getLoginName(),
+                balanceAdjustmentApproveItemDTO.getRemark(), getToken(), getCurrentUserId() + "");
+        return ResultDTO.success();
+    }
+
+    @PostMapping(value = "/reject")
+    public ResultDTO<Object> reject(@RequestBody BalanceAdjustmentApproveItemDTO balanceAdjustmentApproveItemDTO) {
+        balanceAdjustmentHeaderService.reject(balanceAdjustmentApproveItemDTO, getLoginName() == null ? "admin" : getLoginName(),
+                balanceAdjustmentApproveItemDTO.getRemark(), getToken(), getCurrentUserId() + "");
+        return ResultDTO.success();
+    }
+
+    @RequiresPermissions("claim:header:withdraw")
+    @GetMapping(value = "/withdraw/{id}")
+    public ResultDTO<Object> withdraw(@PathVariable("id") Long id) {
+        balanceAdjustmentHeaderService.withdraw(id,getLoginName(),getToken(),getCurrentUserId());
+        return ResultDTO.success();
+    }
+   
+
+}
